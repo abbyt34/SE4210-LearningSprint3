@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Complexity & Side-Channel Lab</title>
+<style>
+:root{--bg:#0b1220;--panel:#121e31;--panel2:#182840;--ink:#eef4ff;--muted:#a9bad1;--line:#2b405c;--cyan:#59d5e8;--violet:#b6a0ff;--orange:#ffbd75;--green:#7ee0b0}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% 0%,#1b3150 0,transparent 35%),var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:1100px;margin:auto;padding:34px 22px 60px}.eyebrow{color:var(--cyan);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:.76rem}
+h1{font-size:clamp(2rem,5vw,3.5rem);line-height:1.08;margin:.4rem 0 1rem;letter-spacing:-.04em}h2{margin:0 0 .4rem;font-size:1.45rem}h3{margin:.2rem 0 .5rem}
+.lede{color:var(--muted);max-width:760px;font-size:1.08rem}.tabs{display:flex;gap:10px;flex-wrap:wrap;margin:28px 0 18px}
+button,select,input{font:inherit}button{cursor:pointer;border:1px solid var(--line);background:var(--panel2);color:var(--ink);padding:10px 15px;border-radius:10px;font-weight:650}
+button.active,button.primary{background:var(--cyan);color:#071522;border-color:var(--cyan)}button:hover{filter:brightness(1.12)}
+.panel{background:linear-gradient(145deg,rgba(24,40,64,.98),rgba(16,28,45,.98));border:1px solid var(--line);border-radius:18px;padding:22px;margin:16px 0;box-shadow:0 18px 45px #0003}
+.grid{display:grid;grid-template-columns:1.05fr .95fr;gap:16px}.controls{display:grid;gap:14px}.field{display:grid;gap:6px}.field label{color:var(--muted);font-size:.9rem;font-weight:650}
+input[type=range]{width:100%;accent-color:var(--cyan)}input[type=text],select{width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--line);background:#0b1728;color:var(--ink)}
+.metric{background:#0b1728;border:1px solid var(--line);border-radius:12px;padding:14px}.metric strong{display:block;font-size:1.55rem;color:var(--cyan);font-variant-numeric:tabular-nums}.metric span{color:var(--muted);font-size:.84rem}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+canvas{width:100%;height:300px;display:block;background:#0b1728;border:1px solid var(--line);border-radius:12px}
+.note{color:var(--muted);font-size:.92rem}.callout{border-left:3px solid var(--orange);padding:10px 14px;background:#ffbd7510;color:#e8d7c2;border-radius:0 9px 9px 0;margin-top:14px}
+.steps{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0}.step{width:35px;height:38px;border-radius:7px;display:grid;place-items:center;background:#0b1728;border:1px solid var(--line);font-weight:700}.step.match{background:#123d3b;border-color:var(--green);color:var(--green)}.step.stop{background:#492d24;border-color:var(--orange);color:var(--orange)}
+.result{padding:14px;border-radius:12px;background:#0b1728;border:1px solid var(--line);margin-top:14px}
+.good{color:var(--green)}.warn{color:var(--orange)}.hidden{display:none}.footer{margin-top:25px;color:var(--muted);font-size:.85rem}
+@media(max-width:760px){.grid{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}main{padding:24px 14px 45px}}
+</style>
+</head>
+<body>
+<main>
+<div class="eyebrow">Interactive learning module</div>
+<h1>Complexity &<br>Side-Channel Lab</h1>
+<p class="lede">Explore how algorithm runtime grows as inputs get larger, then see how an implementation can accidentally reveal secret information through its timing behavior. Both experiments run locally in your browser using simplified models.</p>
+<div class="tabs" role="tablist" aria-label="Lab activities">
+<button class="active" id="complexityTab" role="tab" aria-selected="true">01 · Algorithmic complexity</button>
+<button id="timingTab" role="tab" aria-selected="false">02 · Timing side channel</button>
+</div>
+
+<section id="complexityPanel" class="panel" role="tabpanel">
+<h2>How does work scale with input size?</h2>
+<p class="note">Choose a growth function and adjust n. The chart compares estimated operation counts—not measured wall-clock time.</p>
+<div class="grid">
+<div class="controls">
+<div class="field"><label for="nSlider">Input size (n): <strong id="nValue">20</strong></label><input id="nSlider" type="range" min="1" max="100" value="20"></div>
+<div class="field"><label for="scaleSelect">Chart scale</label><select id="scaleSelect"><option value="linear">Linear</option><option value="log">Logarithmic (base 10)</option></select></div>
+<div class="field"><label>Growth functions</label>
+<label><input type="checkbox" class="curve" value="constant" checked> O(1) · Constant</label>
+<label><input type="checkbox" class="curve" value="log" checked> O(log n) · Logarithmic</label>
+<label><input type="checkbox" class="curve" value="linear" checked> O(n) · Linear</label>
+<label><input type="checkbox" class="curve" value="quadratic" checked> O(n²) · Quadratic</label>
+<label><input type="checkbox" class="curve" value="exponential"> O(2ⁿ) · Exponential (shown for small n)</label>
+</div>
+<div class="callout">Big-O describes how resource use grows as n increases. It ignores constant factors and lower-order terms, so it is about the trend—not an exact stopwatch prediction.</div>
+</div>
+<div>
+<canvas id="growthChart" width="700" height="360" aria-label="Chart comparing algorithm growth functions"></canvas>
+<div class="metrics" id="metrics"></div>
+</div>
+</div>
+</section>
+
+<section id="timingPanel" class="panel hidden" role="tabpanel">
+<h2>Can response time reveal a secret?</h2>
+<p class="note">This is a deterministic teaching simulation. It does not measure real execution time, send requests, or attack a system. The “time units” represent how much comparison work an implementation performs.</p>
+<div class="grid">
+<div class="controls">
+<div class="field"><label for="secretInput">Toy secret value</label><input id="secretInput" type="text" value="MAPLE" maxlength="12" autocomplete="off"></div>
+<div class="field"><label for="guessInput">Candidate guess</label><input id="guessInput" type="text" value="MAKER" maxlength="12" autocomplete="off"></div>
+<div class="field"><label for="modeSelect">Comparison implementation</label><select id="modeSelect"><option value="early">Early-exit comparison (leaky)</option><option value="constant">Fixed-work comparison (constant-work model)</option></select></div>
+<button class="primary" id="compareBtn">Compare values</button>
+</div>
+<div>
+<div class="metric"><span>Simulated work units</span><strong id="workValue">—</strong><span id="workCaption">Run a comparison to see the result.</span></div>
+<div class="metric" style="margin-top:10px"><span>Characters examined</span><strong id="examinedValue">—</strong><span>Illustrative count, not milliseconds.</span></div>
+</div>
+</div>
+<div class="result" aria-live="polite">
+<h3 id="comparisonTitle">Comparison trace</h3>
+<p id="comparisonText" class="note">Enter a guess and compare it with the toy secret.</p>
+<div class="steps" id="steps"></div>
+<p id="lessonText" class="note"></p>
+</div>
+<div class="callout"><strong>Key idea:</strong> An early-exit comparison can stop at the first mismatch. If the amount of work depends on how many leading characters match, an observer may infer information from timing. A constant-time design aims to avoid data-dependent early exits and other secret-dependent timing differences.</div>
+</section>
+<p class="footer">Learning note: real systems have noise, compiler effects, caches, network delays, and many other factors. Constant-time security requires careful implementation and testing; this simplified model illustrates one source of leakage only.</p>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const tabs = [['complexityTab','complexityPanel'],['timingTab','timingPanel']];
+tabs.forEach(([tab,panel]) => $(tab).addEventListener('click',()=>{
+  tabs.forEach(([t,p])=>{$(t).classList.toggle('active',t===tab);$(t).setAttribute('aria-selected',String(t===tab));$(p).classList.toggle('hidden',p!==panel);});
+  if(panel==='complexityPanel') drawChart();
+}));
+const colors={constant:'#59d5e8',log:'#b6a0ff',linear:'#7ee0b0',quadratic:'#ffbd75',exponential:'#ff8299'};
+const names={constant:'O(1)',log:'O(log n)',linear:'O(n)',quadratic:'O(n²)',exponential:'O(2ⁿ)'};
+const funcs={constant:n=>1,log:n=>Math.log2(Math.max(1,n)),linear:n=>n,quadratic:n=>n*n,exponential:n=>Math.pow(2,n)};
+function drawChart(){
+ const canvas=$('growthChart'),ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height,pad=48;
+ const n=+$('nSlider').value,logScale=$('scaleSelect').value==='log';
+ $('nValue').textContent=n;
+ const selected=[...document.querySelectorAll('.curve:checked')].map(x=>x.value);
+ let maxN=100, maxY=Math.max(...selected.map(k=>funcs[k](maxN)),1);
+ if(logScale) maxY=Math.max(10,maxY);
+ ctx.clearRect(0,0,w,h);ctx.font='12px system-ui';ctx.strokeStyle='#2b405c';ctx.fillStyle='#a9bad1';ctx.lineWidth=1;
+ for(let i=0;i<=5;i++){let y=pad+(h-pad*1.5)*i/5;ctx.beginPath();ctx.moveTo(pad,y);ctx.lineTo(w-12,y);ctx.stroke();let v=5-i;ctx.fillText(logScale?'10^'+v:Math.round(maxY*(1-i/5)),5,y+4);}
+ for(let i=0;i<=5;i++){let x=pad+(w-pad-20)*i/5;ctx.beginPath();ctx.moveTo(x,pad);ctx.lineTo(x,h-pad);ctx.stroke();ctx.fillText(String(i*20),x-7,h-12);}
+ selected.forEach(k=>{ctx.beginPath();ctx.strokeStyle=colors[k];ctx.lineWidth=3;for(let x=1;x<=100;x++){let val=funcs[k](x);let yy=logScale?Math.log10(Math.max(1,val)):val/maxY* Math.pow(10,Math.floor(Math.log10(maxY)));let y=logScale? h-pad-(Math.log10(Math.max(1,val))/Math.max(1,Math.log10(maxY)))*(h-pad*1.5):h-pad-(val/maxY)*(h-pad*1.5);let xx=pad+(x/100)*(w-pad-20);if(x===1)ctx.moveTo(xx,y);else ctx.lineTo(xx,y);}ctx.stroke();});
+ let metrics=selected.map(k=>`<div class="metric"><strong style="color:${colors[k]}">${Math.round(funcs[k](n)).toLocaleString()}</strong><span>${names[k]} estimated units at n=${n}</span></div>`).join('');
+ $('metrics').innerHTML=metrics||'<p class="note">Select at least one growth function.</p>';
+}
+$('nSlider').addEventListener('input',drawChart);$('scaleSelect').addEventListener('change',drawChart);document.querySelectorAll('.curve').forEach(x=>x.addEventListener('change',drawChart));
+function compare(){
+ const secret=$('secretInput').value,guess=$('guessInput').value,mode=$('modeSelect').value;
+ if(!secret||!guess){$('comparisonText').textContent='Enter both a secret and a candidate guess.';return;}
+ const max=Math.max(secret.length,guess.length),limit=mode==='constant'?max:Math.min(secret.length,guess.length);
+ let matched=0,mismatch=-1,examined=0;
+ for(let i=0;i<limit;i++){examined++;if(secret[i]===guess[i])matched++;else{mismatch=i;break;}}
+ let equal=secret===guess;
+ if(mode==='constant'){examined=max;matched=0;for(let i=0;i<max;i++){if(secret[i]===guess[i])matched++;}mismatch=equal?-1:(secret.slice(0,max)===guess.slice(0,max)?-1:Math.min(matched,max-1));}
+ const work=mode==='constant'?max:examined;
+ $('workValue').textContent=work+' units';$('examinedValue').textContent=examined;
+ $('workCaption').textContent=mode==='constant'?'Fixed-work model: examines the full maximum length.':'Early-exit model: stops at the first mismatch (or end).';
+ $('comparisonTitle').textContent=equal?'Exact match':'Not an exact match';
+ $('comparisonTitle').className=equal?'good':'warn';
+ $('comparisonText').textContent=mode==='early'?`The model examined ${examined} character position(s) before stopping. ${matched>0?matched+' leading character(s) matched.':'The first position differed.'}`:`The model used ${examined} work units regardless of where the first mismatch occurred.`;
+ $('steps').innerHTML=Array.from({length:max},(_,i)=>{let c=secret[i]===guess[i]?'match':(mode==='early'&&i===mismatch?'stop':'');return `<div class="step ${c}" title="Position ${i+1}">${i+1}</div>`}).join('');
+ $('lessonText').textContent=mode==='early'?'Leakage lesson: different matching-prefix lengths produce different work counts in this model. Repeated observations could expose a prefix, even when the secret itself is never printed by the comparison routine.':'Mitigation lesson: the fixed-work model examines the same number of positions for each candidate of the same maximum length. Real constant-time code must also account for compiler, memory, and hardware behavior.';
+}
+$('compareBtn').addEventListener('click',compare);
+drawChart();compare();
+</script>
+</body>
+</html>
